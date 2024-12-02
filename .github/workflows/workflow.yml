@@ -88,12 +88,18 @@ jobs:
             newman run $collection
           done
 
-      # Análisis con SonarQube
+      # Análisis con SonarQube por cada microservicio
       - name: Analyze with SonarQube
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=adrianrc7_proyecto24-ga01
+        run: |
+          for service in Content; do
+            cd $service
+            mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=adrianrc7_proyecto24-ga01-$service
+            cd ..
+          done
+
 
       # Mensaje final
       - name: Completion Message
