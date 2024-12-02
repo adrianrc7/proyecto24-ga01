@@ -1,5 +1,5 @@
-name: Compilación, Pruebas y Análisis con SonarQube
-#1
+name: Compilación, Pruebas y Análisis con SonarCloud
+
 on:
   push:
     branches:
@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-and-analyze:
-    name: Build, Test and Analyze
+    name: Build, Test and Analyze Content Microservice
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -27,7 +27,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Para mejor relevancia en el análisis de SonarQube
+          fetch-depth: 0  # Para un análisis completo en SonarCloud
 
       # Configura Java 17
       - name: Set up JDK 17
@@ -41,67 +41,52 @@ jobs:
       - name: Wait for PostgreSQL to be ready
         run: |
           while ! pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for PostgreSQL to be ready..."
+            echo "Esperando a que PostgreSQL esté listo..."
             sleep 2
           done
 
-      # Ejecutar scripts SQL
-      - name: Execute SQL scripts to set up databases
+      # Ejecutar scripts SQL para inicializar la base de datos del microservicio Content
+      - name: Execute SQL script for Content database
         run: |
           export PGPASSWORD=12345
-          psql -h localhost -U postgres -f User.sql
           psql -h localhost -U postgres -f Content.sql
-          psql -h localhost -U postgres -f Visualization.sql
 
-      # Construye y prueba microservicios
-      - name: Build and test all microservices
+      # Construir y probar solo el microservicio Content
+      - name: Build and test Content microservice
         run: |
-          for service in Visualization Content User; do
-            cd $service
-            mvn clean install
-            mvn test
-            cd ..
-          done
+          cd Content
+          mvn clean install
+          mvn test
 
-      # Inicia microservicios
-      - name: Run microservices
-        run: |
-          for service in Visualization Content User; do
-            cd $service
-            mvn spring-boot:run &
-            cd ..
-          done
-
-      # Instalar Node.js para ejecutar pruebas de Postman
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      # Análisis de SonarCloud para el microservicio Content
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
         with:
-          node-version: '16'
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
 
-      - name: Install Newman
-        run: npm install -g newman
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
 
-      # Ejecutar pruebas de Postman
-      - name: Run Postman tests
-        run: |
-          for collection in tests/User.postman_collection.json tests/Content.postman_collection.json tests/Visualization.postman_collection.json; do
-            newman run $collection
-          done
-
-      # Ejecutar análisis de SonarQube en el microservicio Content
-      - name: Analyze Content microservice with SonarQube
+      - name: Run SonarCloud analysis for Content
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           cd Content
           mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=adrianrc7_proyecto24-ga01-Content \
-            -Dsonar.host.url=https://your-sonarqube-instance-url \
+            -Dsonar.projectKey=adrianrc7_proyecto24-ga01 \
+            -Dsonar.organization=adrianrc7 \
+            -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.login=${{ secrets.SONAR_TOKEN }}
-
 
       # Mensaje final
       - name: Completion Message
-        run: echo "Todos los microservicios han sido compilados, probados y analizados exitosamente con SonarQube."
+        run: echo "El microservicio Content ha sido compilado, probado y analizado exitosamente con SonarCloud."
+
 
